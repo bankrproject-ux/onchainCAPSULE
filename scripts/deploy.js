@@ -1,24 +1,158 @@
 const hre = require("hardhat");
-require("dotenv").config();
+const readline = require("readline");
+
+function ask(question, hidden = false) {
+    return new Promise((resolve) => {
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        if (!hidden) {
+            rl.question(question, (answer) => {
+                rl.close();
+                resolve(answer.trim());
+            });
+
+            return;
+        }
+
+        process.stdout.write(question);
+
+        const stdin = process.stdin;
+
+        stdin.setRawMode(true);
+        stdin.resume();
+        stdin.setEncoding("utf8");
+
+        let answer = "";
+
+        const onData = (key) => {
+            if (key === "\r" || key === "\n") {
+                stdin.setRawMode(false);
+                stdin.pause();
+                stdin.removeListener("data", onData);
+                rl.close();
+
+                process.stdout.write("\n");
+                resolve(answer.trim());
+
+                return;
+            }
+
+            if (key === "\u0003") {
+                process.exit();
+            }
+
+            if (key === "\u007f") {
+                if (answer.length > 0) {
+                    answer = answer.slice(0, -1);
+                }
+
+                return;
+            }
+
+            answer += key;
+        };
+
+        stdin.on("data", onData);
+    });
+}
 
 async function main() {
-    const [deployer] = await hre.ethers.getSigners();
+    console.log("");
+    console.log("========================================");
+    console.log("       onchainCAPSULE DEPLOY");
+    console.log("       Robinhood Chain Mainnet");
+    console.log("       Chain ID: 4663");
+    console.log("========================================");
+    console.log("");
 
-    console.log("================================");
-    console.log("onchainCAPSULE DEPLOYMENT");
-    console.log("Robinhood Chain Mainnet");
-    console.log("================================");
+    const privateKey = await ask(
+        "Private key: ",
+        true
+    );
 
-    console.log("Deployer:", deployer.address);
+    if (!privateKey) {
+        throw new Error(
+            "Private key cannot be empty."
+        );
+    }
 
-    const balance = await hre.ethers.provider.getBalance(
+    const liquidityWallet = await ask(
+        "Liquidity wallet address: "
+    );
+
+    if (!hre.ethers.isAddress(liquidityWallet)) {
+        throw new Error(
+            "Invalid liquidity wallet address."
+        );
+    }
+
+    const provider =
+        hre.ethers.provider;
+
+    const deployer =
+        new hre.ethers.Wallet(
+            privateKey,
+            provider
+        );
+
+    const network =
+        await provider.getNetwork();
+
+    if (network.chainId !== 4663n) {
+        throw new Error(
+            `Wrong network. Expected 4663, got ${network.chainId}`
+        );
+    }
+
+    console.log("");
+    console.log(
+        "Deployer:",
         deployer.address
     );
 
     console.log(
-        "ETH Balance:",
-        hre.ethers.formatEther(balance)
+        "Liquidity:",
+        liquidityWallet
     );
+
+    const ethBalance =
+        await provider.getBalance(
+            deployer.address
+        );
+
+    console.log(
+        "ETH balance:",
+        hre.ethers.formatEther(
+            ethBalance
+        )
+    );
+
+    if (ethBalance === 0n) {
+        throw new Error(
+            "Deployer has no ETH for gas."
+        );
+    }
+
+    console.log("");
+
+    /*
+     * CONFIRM
+     */
+
+    const confirmation = await ask(
+        "Type DEPLOY to continue: "
+    );
+
+    if (confirmation !== "DEPLOY") {
+        console.log(
+            "\nDeployment cancelled."
+        );
+
+        return;
+    }
 
     /*
      * IPFS ARTWORK
@@ -28,20 +162,26 @@ async function main() {
         "ipfs://bafybeiassudszlwaxlnrxd7b76t6qbv4wttbbwpll3jestxkh4i5wemd6y";
 
     /*
-     * DEPLOY TOKEN
+     * TOKEN
      */
 
-    console.log("\n[1/3] Deploying CapsuleToken...");
-
-    const Token = await hre.ethers.getContractFactory(
-        "CapsuleToken"
+    console.log(
+        "\n[1/3] Deploying CapsuleToken..."
     );
 
-    const token = await Token.deploy();
+    const Token =
+        await hre.ethers.getContractFactory(
+            "CapsuleToken",
+            deployer
+        );
+
+    const token =
+        await Token.deploy();
 
     await token.waitForDeployment();
 
-    const tokenAddress = await token.getAddress();
+    const tokenAddress =
+        await token.getAddress();
 
     console.log(
         "CapsuleToken:",
@@ -49,20 +189,28 @@ async function main() {
     );
 
     /*
-     * DEPLOY NFT
+     * NFT
      */
 
-    console.log("\n[2/3] Deploying CapsuleNFT...");
-
-    const NFT = await hre.ethers.getContractFactory(
-        "CapsuleNFT"
+    console.log(
+        "\n[2/3] Deploying CapsuleNFT..."
     );
 
-    const nft = await NFT.deploy(imageURI);
+    const NFT =
+        await hre.ethers.getContractFactory(
+            "CapsuleNFT",
+            deployer
+        );
+
+    const nft =
+        await NFT.deploy(
+            imageURI
+        );
 
     await nft.waitForDeployment();
 
-    const nftAddress = await nft.getAddress();
+    const nftAddress =
+        await nft.getAddress();
 
     console.log(
         "CapsuleNFT:",
@@ -70,23 +218,29 @@ async function main() {
     );
 
     /*
-     * DEPLOY VAULT
+     * VAULT
      */
 
-    console.log("\n[3/3] Deploying CapsuleVault...");
-
-    const Vault = await hre.ethers.getContractFactory(
-        "CapsuleVault"
+    console.log(
+        "\n[3/3] Deploying CapsuleVault..."
     );
 
-    const vault = await Vault.deploy(
-        nftAddress,
-        tokenAddress
-    );
+    const Vault =
+        await hre.ethers.getContractFactory(
+            "CapsuleVault",
+            deployer
+        );
+
+    const vault =
+        await Vault.deploy(
+            nftAddress,
+            tokenAddress
+        );
 
     await vault.waitForDeployment();
 
-    const vaultAddress = await vault.getAddress();
+    const vaultAddress =
+        await vault.getAddress();
 
     console.log(
         "CapsuleVault:",
@@ -97,70 +251,100 @@ async function main() {
      * AUTHORIZE VAULT
      */
 
-    console.log("\nAuthorizing Vault...");
+    console.log(
+        "\nAuthorizing Vault..."
+    );
 
-    const setVaultTx = await nft.setVault(
-        vaultAddress
+    const setVaultTx =
+        await nft.setVault(
+            vaultAddress
+        );
+
+    console.log(
+        "setVault:",
+        setVaultTx.hash
     );
 
     await setVaultTx.wait();
 
-    console.log("Vault authorized.");
-
-    /*
-     * TOKEN ALLOCATION
-     */
-
-    const rewardAllocation =
-        hre.ethers.parseEther("85000000");
-
-    const liquidityAllocation =
-        hre.ethers.parseEther("15000000");
-
-    const liquidityWallet =
-        process.env.LIQUIDITY_WALLET;
-
-    if (!liquidityWallet) {
-        throw new Error(
-            "LIQUIDITY_WALLET is missing from .env"
-        );
-    }
-
     console.log(
-        "\nSending 85M CAPS to Vault..."
+        "Vault authorized."
     );
 
-    const vaultTx = await token.transferTo(
-        vaultAddress,
-        rewardAllocation
+    /*
+     * ALLOCATION
+     */
+
+    console.log(
+        "\nSending 85,000,000 CAPS to Vault..."
+    );
+
+    const vaultTx =
+        await token.transferTo(
+            vaultAddress,
+            hre.ethers.parseEther(
+                "85000000"
+            )
+        );
+
+    console.log(
+        "Vault allocation:",
+        vaultTx.hash
     );
 
     await vaultTx.wait();
 
-    console.log("85M CAPS sent to Vault.");
-
     console.log(
-        "\nSending 15M CAPS to liquidity wallet..."
+        "85M CAPS sent."
     );
 
-    const liquidityTx = await token.transferTo(
-        liquidityWallet,
-        liquidityAllocation
+    console.log(
+        "\nSending 15,000,000 CAPS to liquidity..."
+    );
+
+    const liquidityTx =
+        await token.transferTo(
+            liquidityWallet,
+            hre.ethers.parseEther(
+                "15000000"
+            )
+        );
+
+    console.log(
+        "Liquidity allocation:",
+        liquidityTx.hash
     );
 
     await liquidityTx.wait();
 
     console.log(
-        "15M CAPS sent to liquidity wallet."
+        "15M CAPS sent."
     );
 
     /*
-     * FINAL
+     * FINAL CHECK
      */
 
-    console.log("\n================================");
-    console.log("DEPLOYMENT COMPLETE");
-    console.log("================================");
+    const vaultBalance =
+        await token.balanceOf(
+            vaultAddress
+        );
+
+    const liquidityBalance =
+        await token.balanceOf(
+            liquidityWallet
+        );
+
+    console.log("");
+    console.log(
+        "========================================"
+    );
+    console.log(
+        "       DEPLOYMENT COMPLETE"
+    );
+    console.log(
+        "========================================"
+    );
 
     console.log(
         "Token:",
@@ -178,24 +362,34 @@ async function main() {
     );
 
     console.log(
+        "Vault CAPS:",
+        hre.ethers.formatEther(
+            vaultBalance
+        )
+    );
+
+    console.log(
+        "Liquidity CAPS:",
+        hre.ethers.formatEther(
+            liquidityBalance
+        )
+    );
+
+    console.log(
         "Image:",
         imageURI
     );
 
     console.log(
-        "Reward Pool:",
-        "85,000,000 CAPS"
+        "========================================"
     );
-
-    console.log(
-        "Liquidity:",
-        "15,000,000 CAPS"
-    );
-
-    console.log("================================");
 }
 
 main().catch((error) => {
+    console.error("");
+    console.error(
+        "DEPLOYMENT FAILED"
+    );
     console.error(error);
     process.exitCode = 1;
 });

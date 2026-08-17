@@ -1,14 +1,12 @@
 {
   "name": "onchain-capsule",
   "version": "1.0.0",
-  "description": "onchainCAPSULE NFT and token ecosystem",
   "private": true,
+  "description": "onchainCAPSULE NFT project",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.js --network robinhood",
-    "allocate": "hardhat run scripts/allocate.js --network robinhood",
-    "verify": "hardhat verify --network robinhood"
+    "deploy": "hardhat run scripts/deploy.js --network robinhood"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",

@@ -3,14 +3,24 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract CapsuleVault is Ownable, ReentrancyGuard {
-    IERC20 public immutable capsuleToken;
-    IERC721 public immutable capsuleNFT;
+interface ICapsuleNFT is IERC721 {
+    function burn(uint256 tokenId) external;
+}
 
+contract CapsuleVault is Ownable, ReentrancyGuard {
+    using Address for address payable;
+
+    IERC20 public immutable capsuleToken;
+    ICapsuleNFT public immutable capsuleNFT;
+
+    // 17,000 CAPS per burned NFT
     uint256 public constant REWARD_PER_NFT = 17_000 ether;
+
+    // Internal claim fee
     uint256 public constant CLAIM_FEE = 0.00006 ether;
 
     uint256 public totalClaimedNFTs;
@@ -33,10 +43,17 @@ contract CapsuleVault is Ownable, ReentrancyGuard {
         address capsuleNFT_,
         address capsuleToken_
     ) Ownable(msg.sender) {
-        require(capsuleNFT_ != address(0), "Invalid NFT address");
-        require(capsuleToken_ != address(0), "Invalid token address");
+        require(
+            capsuleNFT_ != address(0),
+            "Invalid NFT address"
+        );
 
-        capsuleNFT = IERC721(capsuleNFT_);
+        require(
+            capsuleToken_ != address(0),
+            "Invalid token address"
+        );
+
+        capsuleNFT = ICapsuleNFT(capsuleNFT_);
         capsuleToken = IERC20(capsuleToken_);
     }
 
@@ -45,8 +62,15 @@ contract CapsuleVault is Ownable, ReentrancyGuard {
         payable
         nonReentrant
     {
-        require(msg.value == CLAIM_FEE, "Incorrect claim fee");
-        require(!claimed[tokenId], "Capsule already claimed");
+        require(
+            msg.value == CLAIM_FEE,
+            "Incorrect claim fee"
+        );
+
+        require(
+            !claimed[tokenId],
+            "Capsule already claimed"
+        );
 
         require(
             capsuleNFT.ownerOf(tokenId) == msg.sender,
@@ -58,26 +82,30 @@ contract CapsuleVault is Ownable, ReentrancyGuard {
             "Insufficient reward balance"
         );
 
+        // Mark as claimed before external calls.
         claimed[tokenId] = true;
 
-        // User must approve this Vault for the NFT before calling claim().
-        IERC721(address(capsuleNFT)).transferFrom(
+        // Transfer Capsule from user to Vault.
+        // User must approve the Vault first.
+        capsuleNFT.transferFrom(
             msg.sender,
             address(this),
             tokenId
         );
 
-        // Burn the Capsule.
-        // This requires the Vault to be approved for the NFT.
-        IERC721Burnable(address(capsuleNFT)).burn(tokenId);
+        // Vault now owns the NFT, so it can burn it.
+        capsuleNFT.burn(tokenId);
 
-        // Send the fixed reward to the user.
+        // Send 17,000 CAPS to the user.
         bool success = capsuleToken.transfer(
             msg.sender,
             REWARD_PER_NFT
         );
 
-        require(success, "Token transfer failed");
+        require(
+            success,
+            "Token transfer failed"
+        );
 
         totalClaimedNFTs += 1;
         totalClaimedTokens += REWARD_PER_NFT;
@@ -92,15 +120,24 @@ contract CapsuleVault is Ownable, ReentrancyGuard {
     function withdrawFees(
         address payable recipient
     ) external onlyOwner {
-        require(recipient != address(0), "Invalid recipient");
+        require(
+            recipient != address(0),
+            "Invalid recipient"
+        );
 
         uint256 balance = address(this).balance;
 
-        require(balance > 0, "No fees available");
+        require(
+            balance > 0,
+            "No fees available"
+        );
 
-        recipient.transfer(balance);
+        recipient.sendValue(balance);
 
-        emit FeesWithdrawn(recipient, balance);
+        emit FeesWithdrawn(
+            recipient,
+            balance
+        );
     }
 
     function remainingRewards()
@@ -108,10 +145,14 @@ contract CapsuleVault is Ownable, ReentrancyGuard {
         view
         returns (uint256)
     {
-        return capsuleToken.balanceOf(address(this));
+        return capsuleToken.balanceOf(
+            address(this)
+        );
     }
-}
 
-interface IERC721Burnable is IERC721 {
-    function burn(uint256 tokenId) external;
+    function isClaimed(
+        uint256 tokenId
+    ) external view returns (bool) {
+        return claimed[tokenId];
+    }
 }

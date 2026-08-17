@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract CapsuleNFT is ERC721, Ownable {
+contract CapsuleNFT is ERC721, ERC721Burnable, Ownable {
     uint256 public constant MAX_SUPPLY = 5000;
     uint256 public constant MAX_PER_WALLET = 2;
 
@@ -23,10 +24,12 @@ contract CapsuleNFT is ERC721, Ownable {
 
     function mint(uint256 quantity) external {
         require(quantity > 0, "Quantity must be greater than 0");
+
         require(
             mintedPerWallet[msg.sender] + quantity <= MAX_PER_WALLET,
             "Wallet mint limit exceeded"
         );
+
         require(
             totalMinted + quantity <= MAX_SUPPLY,
             "Max supply exceeded"

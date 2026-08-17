@@ -18,9 +18,20 @@ contract CapsuleToken is ERC20, Ownable {
         address recipient,
         uint256 amount
     ) external onlyOwner {
-        require(recipient != address(0), "Invalid recipient");
-        require(amount > 0, "Amount must be greater than zero");
+        require(
+            recipient != address(0),
+            "Invalid recipient"
+        );
 
-        _transfer(msg.sender, recipient, amount);
+        require(
+            amount > 0,
+            "Amount must be greater than zero"
+        );
+
+        _transfer(
+            msg.sender,
+            recipient,
+            amount
+        );
     }
 }

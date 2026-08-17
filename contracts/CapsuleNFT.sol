@@ -24,9 +24,7 @@ contract CapsuleNFT is ERC721, Ownable {
     error NotVault();
     error TokenDoesNotExist();
 
-    constructor(
-        string memory imageURI_
-    )
+    constructor(string memory imageURI_)
         ERC721("onchainCAPSULE", "CAPSULE")
         Ownable(msg.sender)
     {
@@ -64,9 +62,7 @@ contract CapsuleNFT is ERC721, Ownable {
         }
     }
 
-    function setVault(
-        address vault_
-    ) external onlyOwner {
+    function setVault(address vault_) external onlyOwner {
         if (vault_ == address(0)) {
             revert InvalidVault();
         }
@@ -74,9 +70,7 @@ contract CapsuleNFT is ERC721, Ownable {
         vault = vault_;
     }
 
-    function vaultBurn(
-        uint256 tokenId
-    ) external {
+    function vaultBurn(uint256 tokenId) external {
         if (msg.sender != vault) {
             revert NotVault();
         }
@@ -119,9 +113,7 @@ contract CapsuleNFT is ERC721, Ownable {
         return string(
             abi.encodePacked(
                 "data:application/json;base64,",
-                Base64.encode(
-                    bytes(json)
-                )
+                Base64.encode(bytes(json))
             )
         );
     }
@@ -134,9 +126,7 @@ contract CapsuleNFT is ERC721, Ownable {
         return MAX_SUPPLY - totalMinted;
     }
 
-    function _toString(
-        uint256 value
-    )
+    function _toString(uint256 value)
         internal
         pure
         returns (string memory)
@@ -153,16 +143,13 @@ contract CapsuleNFT is ERC721, Ownable {
             temp /= 10;
         }
 
-        bytes memory buffer =
-            new bytes(digits);
+        bytes memory buffer = new bytes(digits);
 
         while (value != 0) {
-            digits -= 1;
+            digits--;
 
             buffer[digits] = bytes1(
-                uint8(
-                    48 + (value % 10)
-                )
+                uint8(48 + (value % 10))
             );
 
             value /= 10;

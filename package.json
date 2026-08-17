@@ -2,7 +2,7 @@
   "name": "onchain-capsule",
   "version": "1.0.0",
   "private": true,
-  "description": "onchainCAPSULE NFT project",
+  "description": "onchainCAPSULE NFT project on Robinhood Chain",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",

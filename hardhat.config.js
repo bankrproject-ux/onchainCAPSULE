@@ -24,26 +24,5 @@ module.exports = {
                 ? [process.env.PRIVATE_KEY]
                 : []
         }
-    },
-
-    etherscan: {
-        apiKey: {
-            robinhood: "empty"
-        },
-
-        customChains: [
-            {
-                network: "robinhood",
-                chainId: 4663,
-
-                urls: {
-                    apiURL:
-                        "https://robinhoodchain.blockscout.com/api",
-
-                    browserURL:
-                        "https://robinhoodchain.blockscout.com"
-                }
-            }
-        ]
     }
 };
